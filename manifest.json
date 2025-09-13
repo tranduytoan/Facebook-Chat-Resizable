@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "FB Chat Resizable",
+  "version": "1.0",
+  "description": "A Chrome extension to make Facebook chat windows resizable",
+  "permissions": [],
+  "action": {
+    "default_title": "FB Chat Resizable"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.facebook.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
