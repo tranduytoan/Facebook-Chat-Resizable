@@ -111,8 +111,14 @@ function addResizeFunctionality(chatWindow) {
                 const newLeft = state.startLeft + deltaX;
                 const newTop = state.startTop + deltaY;
                 chatWindow.style.position = 'fixed';
-                chatWindow.style.left = newLeft + 'px';
-                chatWindow.style.top = newTop + 'px';
+                if (newTop + chatWindow.offsetHeight > window.innerHeight) {
+                    chatWindow.style.top = (window.innerHeight - chatWindow.offsetHeight) + 'px';
+                } else if (newTop + chatWindow.offsetHeight < 5) {
+                    chatWindow.style.top = (5 - chatWindow.offsetHeight) + 'px';
+                } else {
+                    chatWindow.style.left = newLeft + 'px';
+                    chatWindow.style.top = newTop + 'px';
+                }
             },
             right: () => {
                 const newWidth = state.startWidth + deltaX;
