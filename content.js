@@ -1,123 +1,183 @@
-const chatContainerSelector = 'div.xpqajaz.x1ey2m1c.x78zum5.x1jndppq.xixxii4.x1vjfegm';
-// const chatWindowSelector = 'div.xcrg951.x5a5i1n.x1obq294.x78zum5.xdt5ytf.x6prxxf.xvq8zen.x1hm9lzh.x6ikm8r.x10wlt62.xi55695.x1rgmuzj.x85a59c.xbbk1sx';
-const chatWindowSelector = 'div.xcrg951.x5a5i1n.x1obq294';
+const CONFIG = {
+    chatContainerSelector: 'div.xpqajaz.x1ey2m1c.x78zum5.x1jndppq.xixxii4.x1vjfegm',
+    chatWindowSelector: 'div.xcrg951.x5a5i1n.x1obq294',
+    handleSize: 5,
+    zIndex: 9999,
+    minHeight: 0
+};
+
+function createHandle(type, cursor) {
+    const handle = document.createElement('div');
+    const styles = {
+        position: 'absolute',
+        backgroundColor: 'transparent',
+        zIndex: CONFIG.zIndex,
+        cursor: cursor,
+        ...getHandlePosition(type)
+    };
+    
+    Object.assign(handle.style, styles);
+    return handle;
+}
+
+function getHandlePosition(type) {
+    const size = CONFIG.handleSize + 'px';
+    const positions = {
+        left: { left: '0', top: '0', width: size, height: '100%' },
+        top: { left: '0', top: '0', width: '100%', height: size },
+        bottom: { left: '0', bottom: '0', width: '100%', height: size },
+        right: { right: '0', top: '0', width: size, height: '100%' }
+    };
+    return positions[type];
+}
 
 function addResizeFunctionality(chatWindow) {
     if (chatWindow.dataset.resizable) return;
     chatWindow.dataset.resizable = true;
 
-    // const initialHeight = chatWindow.offsetHeight;
-    const minHeight = 0;
     const minWidth = chatWindow.offsetWidth;
-
-    const leftHandle = document.createElement('div');
-    leftHandle.style.position = 'absolute';
-    leftHandle.style.left = '0';
-    leftHandle.style.top = '0';
-    leftHandle.style.width = '5px';
-    leftHandle.style.height = '100%';
-    leftHandle.style.cursor = 'ew-resize';
-    leftHandle.style.backgroundColor = 'transparent';
-    leftHandle.style.zIndex = '9999';
-
-    const topHandle = document.createElement('div');
-    topHandle.style.position = 'absolute';
-    topHandle.style.left = '0';
-    topHandle.style.top = '0';
-    topHandle.style.width = '100%';
-    topHandle.style.height = '5px';
-    topHandle.style.cursor = 'ns-resize';
-    topHandle.style.backgroundColor = 'transparent';
-    topHandle.style.zIndex = '9999';
+    const handles = {
+        left: createHandle('left', 'ew-resize'),
+        top: createHandle('top', 'ns-resize'),
+        bottom: createHandle('bottom', 'move'),
+        right: createHandle('right', 'ew-resize')
+    };
 
     chatWindow.style.position = 'relative';
-    chatWindow.appendChild(leftHandle);
-    chatWindow.appendChild(topHandle);
+    Object.values(handles).forEach(handle => chatWindow.appendChild(handle));
 
-    let isResizingLeft = false;
-    let isResizingTop = false;
-    let startX, startY, startWidth, startHeight;
+    const state = {
+        activeHandle: null,
+        startX: 0,
+        startY: 0,
+        startWidth: 0,
+        startHeight: 0,
+        startLeft: 0,
+        startTop: 0,
+        startBottom: 0,
+        startRight: 0
+    };
 
-    leftHandle.addEventListener('mousedown', (e) => {
-        isResizingLeft = true;
-        startX = e.clientX;
-        startWidth = chatWindow.offsetWidth;
-        document.body.style.cursor = 'ew-resize';
+    function initializeResize(type, e, cursor) {
+        state.activeHandle = type;
+        state.startX = e.clientX;
+        state.startY = e.clientY;
+        state.startWidth = chatWindow.offsetWidth;
+        state.startHeight = chatWindow.offsetHeight;
+        
+        const rect = chatWindow.getBoundingClientRect();
+        state.startLeft = rect.left;
+        state.startTop = rect.top;
+        state.startBottom = rect.bottom;
+        state.startRight = rect.right;
+        
+        document.body.style.cursor = cursor;
         e.preventDefault();
-    });
+    }
 
-    topHandle.addEventListener('mousedown', (e) => {
-        isResizingTop = true;
-        startY = e.clientY;
-        startHeight = chatWindow.offsetHeight;
-        document.body.style.cursor = 'ns-resize';
-        e.preventDefault();
-    });
+    handles.left.addEventListener('mousedown', e => initializeResize('left', e, 'ew-resize'));
+    handles.top.addEventListener('mousedown', e => initializeResize('top', e, 'ns-resize'));
+    handles.bottom.addEventListener('mousedown', e => initializeResize('drag', e, 'move'));
+    handles.right.addEventListener('mousedown', e => initializeResize('right', e, 'ew-resize'));
 
-    document.addEventListener('mousemove', (e) => {
-        if (isResizingLeft) {
-            const newWidth = startWidth - (e.clientX - startX);
-            if (newWidth >= minWidth) {
-                chatWindow.style.width = newWidth + 'px';
+    function handleMouseMove(e) {
+        if (!state.activeHandle) return;
+
+        const deltaX = e.clientX - state.startX;
+        const deltaY = e.clientY - state.startY;
+        
+        const handlers = {
+            left: () => {
+                const newWidth = state.startWidth - deltaX;
+                const newLeft = state.startLeft + deltaX;
+                if (newWidth >= minWidth) {
+                    chatWindow.style.width = newWidth + 'px';
+                    if (chatWindow.style.position === 'fixed') {
+                        chatWindow.style.left = newLeft + 'px';
+                    }
+                }
+            },
+            top: () => {
+                const newHeight = state.startHeight - deltaY;
+                const newTop = state.startTop + deltaY;
+                if (newHeight >= CONFIG.minHeight) {
+                    chatWindow.style.height = newHeight + 'px';
+                    if (chatWindow.style.position === 'fixed') {
+                        chatWindow.style.top = newTop + 'px';
+                    }
+                }
+            },
+            drag: () => {
+                const newLeft = state.startLeft + deltaX;
+                const newTop = state.startTop + deltaY;
+                chatWindow.style.position = 'fixed';
+                chatWindow.style.left = newLeft + 'px';
+                chatWindow.style.top = newTop + 'px';
+            },
+            right: () => {
+                const newWidth = state.startWidth + deltaX;
+                if (newWidth >= minWidth) {
+                    chatWindow.style.width = newWidth + 'px';
+                }
             }
-        }
-        if (isResizingTop) {
-            const newHeight = startHeight - (e.clientY - startY);
-            if (newHeight >= minHeight) {
-                chatWindow.style.height = newHeight + 'px';
-            }
-        }
-    });
+        };
 
-    document.addEventListener('mouseup', () => {
-        if (isResizingLeft || isResizingTop) {
-            isResizingLeft = false;
-            isResizingTop = false;
+        handlers[state.activeHandle]?.();
+    }
+
+    function handleMouseUp() {
+        if (state.activeHandle) {
+            state.activeHandle = null;
             document.body.style.cursor = '';
+        }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+}
+
+function findChatContainer(node) {
+    if (node.matches?.(CONFIG.chatContainerSelector)) return node;
+    return node.querySelector?.(CONFIG.chatContainerSelector);
+}
+
+function processMutationNodes(nodes, callback) {
+    nodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            callback(node);
         }
     });
 }
 
 function observerMountDiv() {
     const mountDiv = document.querySelector('div[id^="mount_0_0_"]');
-    if (!mountDiv) {
-        return null;
-    }
+    if (!mountDiv) return null;
     
-    const observer1 = new MutationObserver((mutations, observe) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.matches && node.matches(chatContainerSelector)) {
-                        observe.disconnect();
-                        observeChatWindows(node);
-                        return;
-                    }
-                    const chatContainer = node.querySelector(chatContainerSelector);
-                    if (chatContainer) {
-                        observe.disconnect();
-                        observeChatWindows(chatContainer);
-                        return;
-                    }
+    const observer = new MutationObserver((mutations, observe) => {
+        mutations.forEach(mutation => {
+            processMutationNodes(mutation.addedNodes, node => {
+                const chatContainer = findChatContainer(node);
+                if (chatContainer) {
+                    observe.disconnect();
+                    observeChatWindows(chatContainer);
                 }
             });
         });
     });
-    observer1.observe(mountDiv, { childList: true, subtree: true });
+    
+    observer.observe(mountDiv, { childList: true, subtree: true });
 }
 
 function observeChatWindows(chatContainer) {
-    const chatWindows = chatContainer.querySelectorAll(chatWindowSelector);
+    const chatWindows = chatContainer.querySelectorAll(CONFIG.chatWindowSelector);
     chatWindows.forEach(addResizeFunctionality);
 
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    const newChatWindow = node.querySelector(chatWindowSelector);
-                    if (newChatWindow) {
-                        addResizeFunctionality(newChatWindow);
-                    }
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            processMutationNodes(mutation.addedNodes, node => {
+                const newChatWindow = node.querySelector?.(CONFIG.chatWindowSelector);
+                if (newChatWindow) {
+                    addResizeFunctionality(newChatWindow);
                 }
             });
         });
