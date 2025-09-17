@@ -207,8 +207,12 @@
         observer.observe(chatContainer, { childList: true });
     }
 
-    window.addEventListener('load', () => {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
         observerMountDiv();
-    });
+    } else {
+        window.addEventListener('pageshow', () => {
+            observerMountDiv();
+        });
+    }
 
 })();
