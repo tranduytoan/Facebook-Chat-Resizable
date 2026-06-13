@@ -159,22 +159,27 @@ function observerMountDiv() {
     const mountDiv = document.querySelector('div[id^="mount_0_0_"]');
     if (!mountDiv) return null;
     
+    let found = false;
     const observer = new MutationObserver((mutations, observe) => {
-        mutations.forEach(mutation => {
+        for (const mutation of mutations) {
+            if (found) break;
             processMutationNodes(mutation.addedNodes, node => {
+                if (found) return;
                 const chatContainer = findChatContainer(node);
                 if (chatContainer) {
                     observe.disconnect();
                     observeChatWindows(chatContainer);
+                    found = true;
                 }
             });
-        });
+        }
     });
     
     observer.observe(mountDiv, { childList: true, subtree: true });
 }
 
 function observeChatWindows(chatContainer) {
+    console.log('FB-Chat-Resizable(log): Chat container found and being observed.');
     const chatWindows = chatContainer.querySelectorAll(CONFIG.chatWindowSelector);
     chatWindows.forEach(addResizeFunctionality);
 
@@ -190,8 +195,21 @@ function observeChatWindows(chatContainer) {
     });
 
     observer.observe(chatContainer, { childList: true });
+    
+    const check = setInterval(() => {
+        if (!document.body.contains(chatContainer)) {
+            console.log('FB-Chat-Resizable(log): Chat container lost from DOM. Re-initializing...');
+            observer.disconnect();
+            clearInterval(check);
+            observerMountDiv();
+        }
+    }, 1000);
 }
 
-window.addEventListener('load', () => {
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
     observerMountDiv();
-});
+} else {
+    window.addEventListener('pageshow', () => {
+        observerMountDiv();
+    });
+}
